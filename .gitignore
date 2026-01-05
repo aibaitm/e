@@ -1,0 +1,77 @@
+# 编译输出
+target/
+**/*.rs.bk
+
+# 移除 Cargo.lock，如果是库项目的话
+# 如果是应用项目，建议保留 Cargo.lock
+# Cargo.lock
+
+# 这些是 cargo 的构建缓存文件
+**/Cargo.lock
+**/target/
+
+# 这些是备份文件
+*.bak
+*.backup
+*.orig
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 编辑器文件
+# VS Code
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Rust 特定文件
+*.d
+*.dll
+*.exe
+*.pdb
+*.rlib
+*.so
+*.dylib
+
+# 调试信息
+*.debug
+*.dSYM/
+
+# 覆盖率报告
+*.gcda
+*.gcno
+*.gcov
+
+# 性能分析数据
+*.profraw
+
+# 依赖缓存
+.cargo/registry/
+.cargo/git/
+
+# 构建产物
+build/
+dist/
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.temp
+
+# 环境变量文件
+.env
+.env.local
+.env.*.local
+
+# 个人配置文件
+*.user
+*.suo
+*.userosscache
+
+# 项目特定文件
+# 如果你有自定义的构建输出目录，添加在这里
+# build_output/
