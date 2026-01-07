@@ -176,6 +176,8 @@ impl Default for MyApp {
 impl MyApp {
     /// 处理菜单项点击
     pub fn handle_menu_action(&mut self, action: &str) {
+        println!("handle_menu_action 被调用，动作: {}", action);
+        
         match action {
             "open_folder" => self.open_folder(),
             "new_file" => self.new_file(),

@@ -22,27 +22,14 @@ impl eframe::App for MyApp {
         // 更新状态消息
         self.update_status_message(ctx);
 
-        // 检查是否需要关闭菜单（点击外部）
-        if let (Some(active_menu), Some(click_pos)) = (&self.active_menu, self.menu_click_pos) {
-            if let Some(menu_items) = self.menu_data.get(active_menu) {
-                let menu_height = (menu_items.len() as f32 * 25.0) + 10.0;
-                let menu_rect =
-                    egui::Rect::from_min_size(click_pos, egui::vec2(200.0, menu_height));
-
-                // 检查点击事件 - 只有在菜单打开后才开始检测
-                if let Some(open_time) = self.menu_open_time {
-                    if current_time > open_time + 0.1 {
-                        if ctx.input(|i| i.pointer.any_click()) {
-                            if let Some(click_pos) = ctx.input(|i| i.pointer.interact_pos()) {
-                                if !menu_rect.contains(click_pos) {
-                                    self.active_menu = None;
-                                    self.menu_open_time = None;
-                                    self.menu_click_pos = None;
-                                }
-                            }
-                        }
-                    }
-                }
+        // 简单的菜单关闭检测
+        // 只在用户点击外部区域或按 ESC 键时关闭菜单
+        if self.active_menu.is_some() {
+            // ESC 键关闭菜单
+            if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+                self.active_menu = None;
+                self.menu_open_time = None;
+                self.menu_click_pos = None;
             }
         }
 

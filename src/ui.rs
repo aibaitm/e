@@ -53,25 +53,83 @@ impl UIRenderer {
             if let Some(menu_items) = app.menu_data.get(active_menu) {
                 let menu_height = (menu_items.len() as f32 * 25.0) + 10.0;
 
+                // 克隆菜单项数据以避免借用冲突
                 let menu_items_clone = menu_items.clone();
-                let active_menu_clone = active_menu.clone();
+                let mut action_taken = None;
 
-                egui::Window::new("")
-                    .title_bar(false)
-                    .resizable(false)
+                // 使用 Area 而不是 Window，更简单可靠
+                egui::Area::new(egui::Id::new("dropdown_menu"))
                     .fixed_pos(click_pos)
-                    .fixed_size(egui::vec2(200.0, menu_height))
                     .show(ctx, |ui| {
-                        let mut app_clone = app.clone();
-                        Self::render_menu_items(ui, &mut app_clone, &menu_items_clone);
+                        egui::Frame::menu(ui.style())
+                            .inner_margin(egui::Margin::same(5))
+                            .show(ui, |ui| {
+                                ui.set_width(200.0);
+                                ui.set_max_height(menu_height);
 
-                        // 同步状态回原应用
-                        if app_clone.active_menu != Some(active_menu_clone) {
-                            app.active_menu = app_clone.active_menu;
-                            app.menu_open_time = app_clone.menu_open_time;
-                            app.menu_click_pos = app_clone.menu_click_pos;
-                        }
+                                for item in &menu_items_clone {
+                                    if item.label == "---" {
+                                        ui.separator();
+                                    } else {
+                                        // 为每个菜单项创建可点击区域
+                                        let response = ui.horizontal(|ui| {
+                                            // 菜单项标签
+                                            ui.with_layout(
+                                                egui::Layout::left_to_right(
+                                                    egui::Align::Center,
+                                                ),
+                                                |ui| {
+                                                    if item.enabled {
+                                                        ui.add(egui::Label::new(&item.label));
+                                                    } else {
+                                                        ui.label(
+                                                            egui::RichText::new(&item.label)
+                                                                .color(egui::Color32::GRAY),
+                                                        );
+                                                    }
+                                                },
+                                            );
+
+                                            // 快捷键
+                                            ui.with_layout(
+                                                egui::Layout::right_to_left(
+                                                    egui::Align::Center,
+                                                ),
+                                                |ui| {
+                                                    if let Some(shortcut) = &item.shortcut {
+                                                        if item.enabled {
+                                                            ui.label(shortcut);
+                                                        } else {
+                                                            ui.label(
+                                                                egui::RichText::new(shortcut)
+                                                                    .color(egui::Color32::GRAY),
+                                                            );
+                                                        }
+                                                    }
+                                                },
+                                            );
+                                        });
+
+                                        // 为整个菜单项区域添加点击感应
+                                        let response = ui.interact(response.response.rect, egui::Id::new(&item.action), egui::Sense::click());
+                                        
+                                        // 记录点击的菜单项
+                                        if response.clicked() && item.enabled {
+                                            action_taken = Some(item.action.clone());
+                                        }
+                                    }
+                                }
+                            });
                     });
+
+                // 在闭包外部处理菜单动作
+                if let Some(action) = action_taken {
+                    app.handle_menu_action(&action);
+                    // 点击菜单项后关闭菜单
+                    app.active_menu = None;
+                    app.menu_open_time = None;
+                    app.menu_click_pos = None;
+                }
             }
         }
     }
