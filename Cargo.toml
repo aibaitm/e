@@ -2,6 +2,21 @@
 name = "e"
 version = "0.1.0"
 edition = "2024"
+description = "一个基于 eframe/egui 的 GUI 应用程序"
+authors = ["aibaitm <1076767262@qq.com>"]
+license = "MIT"
+repository = "https://github.com/aibaitm/e"
+
+# 添加图标和资源文件配置
+[[bin]]
+name = "e"
+path = "src/main.rs"
+
+[package.metadata]
+# 打包配置 - 简化版本
+[package.metadata.bundle]
+name = "e"
+identifier = "com.aibaitm.e"
 
 [dependencies]
 chrono = { version = "0.4", features = ["serde"] }
@@ -14,4 +29,9 @@ rfd = "0.16.0"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tokio = { version = "1.49", features = ["full"] }
+
+# 打包工具
+[build-dependencies]
+# cargo-bundle 用于生成安装包
+cargo-bundle = "0.1"
 

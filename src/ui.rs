@@ -55,7 +55,7 @@ impl UIRenderer {
 
                 let menu_items_clone = menu_items.clone();
                 let active_menu_clone = active_menu.clone();
-                
+
                 egui::Window::new("")
                     .title_bar(false)
                     .resizable(false)
@@ -64,7 +64,7 @@ impl UIRenderer {
                     .show(ctx, |ui| {
                         let mut app_clone = app.clone();
                         Self::render_menu_items(ui, &mut app_clone, &menu_items_clone);
-                        
+
                         // 同步状态回原应用
                         if app_clone.active_menu != Some(active_menu_clone) {
                             app.active_menu = app_clone.active_menu;
@@ -94,9 +94,9 @@ impl UIRenderer {
         if item.enabled {
             let response = ui
                 .horizontal(|ui| {
-                    // 菜单项标签
+                    // 菜单项标签 - 添加点击感应
                     ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
-                        ui.label(&item.label);
+                        ui.add(egui::Label::new(&item.label).sense(egui::Sense::click()));
                     });
 
                     // 快捷键
@@ -157,29 +157,225 @@ impl UIRenderer {
     }
 
     /// 渲染侧边栏
-    pub fn render_sidebar(ui: &mut egui::Ui) {
+    pub fn render_sidebar(ui: &mut egui::Ui, app: &mut MyApp) {
         ui.vertical(|ui| {
-            ui.label("项目导航");
+            // 标签页标签区域
+            ui.horizontal(|ui| {
+                // 可以在这里添加更多标签页标签
+                if ui.button("文件管理器").clicked() {
+                    app.handle_menu_action("open_folder");
+                }
+
+                if ui.button("数据库").clicked() {
+                    app.set_status_message("正在打开数据库连接管理器...".to_owned());
+                    println!("打开数据库连接");
+                }
+
+                if ui.button("设置").clicked() {
+                    app.set_status_message("正在打开设置面板...".to_owned());
+                    println!("打开设置");
+                }
+            });
             ui.separator();
 
-            if ui.button("文件管理器").clicked() {
-                println!("打开文件管理器");
-            }
+            // 标签页内容区域
+            ui.vertical(|ui| {
+                // 文件资源管理器标签页内容
+                if !app.explorer_tabs.is_empty() {
+                    Self::render_explorer_tabs_content(ui, app);
+                }
+            });
+        });
+    }
 
-            if ui.button("数据库连接").clicked() {
-                println!("打开数据库连接");
-            }
+    /// 渲染文件资源管理器标签页内容
+    fn render_explorer_tabs_content(ui: &mut egui::Ui, app: &mut MyApp) {
+        // 渲染当前活动标签页的内容
+        if let Some(active_index) = app.active_explorer_tab {
+            if let Some(tab) = app.explorer_tabs.get_mut(active_index) {
+                ui.label(egui::RichText::new(&format!("{} - {}", tab.name, tab.path)).strong());
 
-            if ui.button("设置").clicked() {
-                println!("打开设置");
+                // 保存状态消息到队列，稍后处理
+                let mut status_messages = Vec::new();
+
+                // 渲染文件树
+                Self::render_file_tree(
+                    ui,
+                    &mut tab.file_tree,
+                    &mut tab.expanded_paths,
+                    |message| {
+                        status_messages.push(message);
+                    },
+                );
+
+                // 处理状态消息（在闭包外）
+                for message in status_messages {
+                    app.set_status_message(message);
+                }
+            }
+        }
+    }
+
+    /// 渲染文件资源管理器标签页
+    fn render_explorer_tabs(ui: &mut egui::Ui, app: &mut MyApp) {
+        ui.horizontal(|ui| {
+            ui.label("资源管理器:");
+
+            // 显示所有标签页
+            let tab_indices: Vec<usize> = (0..app.explorer_tabs.len()).collect();
+
+            for i in tab_indices {
+                let tab_name = app.explorer_tabs[i].name.clone();
+                let is_active = app.explorer_tabs[i].is_active;
+
+                let label = if is_active {
+                    egui::RichText::new(&tab_name).strong()
+                } else {
+                    egui::RichText::new(&tab_name)
+                };
+
+                if ui.button(label).clicked() {
+                    // 切换活动标签页
+                    app.active_explorer_tab = Some(i);
+                    for j in 0..app.explorer_tabs.len() {
+                        if let Some(tab) = app.explorer_tabs.get_mut(j) {
+                            tab.is_active = j == i;
+                        }
+                    }
+                    app.set_status_message(format!("切换到资源管理器: {}", tab_name));
+                }
             }
         });
     }
 
-    /// 渲染底部状态栏
-    pub fn render_status_bar(ui: &mut egui::Ui) {
+    /// 渲染文件树
+    fn render_file_tree(
+        ui: &mut egui::Ui,
+        file_tree: &mut Vec<crate::app::FileItem>,
+        expanded_paths: &mut std::collections::HashSet<String>,
+        mut set_status_message: impl FnMut(String),
+    ) {
+        ui.vertical(|ui| {
+            for item in file_tree.iter_mut() {
+                Self::render_file_item(ui, item, expanded_paths, 0, &mut set_status_message);
+            }
+        });
+    }
+
+    /// 渲染单个文件项
+    fn render_file_item(
+        ui: &mut egui::Ui,
+        item: &mut crate::app::FileItem,
+        expanded_paths: &mut std::collections::HashSet<String>,
+        depth: usize,
+        set_status_message: &mut impl FnMut(String),
+    ) {
+        let indent = 16.0 * depth as f32;
+        let is_expanded = expanded_paths.contains(&item.path);
+
         ui.horizontal(|ui| {
-            ui.label("就绪");
+            ui.add_space(indent);
+
+            // 文件夹图标和展开/折叠按钮
+            if item.is_directory {
+                let icon = if is_expanded { "📂" } else { "📁" };
+
+                if ui.small_button(icon).clicked() {
+                    // 切换展开状态
+                    if is_expanded {
+                        expanded_paths.remove(&item.path);
+                        set_status_message(format!("折叠 {}", item.name));
+                    } else {
+                        expanded_paths.insert(item.path.clone());
+                        set_status_message(format!("展开 {}", item.name));
+
+                        // 如果文件夹还没有加载子项，现在加载
+                        if item.children.len() == 1 && item.children[0].name == "..." {
+                            if let Ok(entries) = std::fs::read_dir(&item.path) {
+                                let mut children = Vec::new();
+                                for entry in entries {
+                                    if let Ok(entry) = entry {
+                                        let path = entry.path();
+                                        let is_directory = path.is_dir();
+
+                                        // 获取文件名
+                                        let name = match path.file_name() {
+                                            Some(os_str) => os_str.to_string_lossy().to_string(),
+                                            None => continue,
+                                        };
+
+                                        // 跳过隐藏文件
+                                        if name.starts_with('.') {
+                                            continue;
+                                        }
+
+                                        children.push(crate::app::FileItem {
+                                            name,
+                                            path: path.to_string_lossy().to_string(),
+                                            is_directory,
+                                            is_expanded: false,
+                                            children: if is_directory {
+                                                vec![crate::app::FileItem {
+                                                    name: "...".to_string(),
+                                                    path: "".to_string(),
+                                                    is_directory: false,
+                                                    is_expanded: false,
+                                                    children: Vec::new(),
+                                                }]
+                                            } else {
+                                                Vec::new()
+                                            },
+                                        });
+                                    }
+                                }
+
+                                // 按文件夹在前，文件在后排序
+                                children.sort_by(|a, b| {
+                                    if a.is_directory != b.is_directory {
+                                        b.is_directory.cmp(&a.is_directory)
+                                    } else {
+                                        a.name.to_lowercase().cmp(&b.name.to_lowercase())
+                                    }
+                                });
+
+                                item.children = children;
+                            }
+                        }
+                    }
+                }
+            } else {
+                // 文件图标
+                ui.label("📄");
+            }
+
+            // 文件/文件夹名称
+            let response = ui.selectable_label(false, &item.name);
+
+            if response.clicked() {
+                if item.is_directory {
+                    set_status_message(format!("打开文件夹: {}", item.name));
+                } else {
+                    set_status_message(format!("打开文件: {}", item.name));
+                    // 注意：这里无法直接设置 current_file，需要其他方式处理
+                }
+            }
+        });
+
+        // 渲染子项（如果文件夹是展开的）
+        if item.is_directory && is_expanded {
+            for child in &mut item.children {
+                Self::render_file_item(ui, child, expanded_paths, depth + 1, set_status_message);
+            }
+        }
+    }
+
+    /// 渲染底部状态栏
+    pub fn render_status_bar(ui: &mut egui::Ui, app: &mut MyApp) {
+        ui.horizontal(|ui| {
+            // 显示当前状态消息
+            ui.label(&app.status_message);
+
+            // 右侧显示应用信息
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.label("egui 应用");
             });

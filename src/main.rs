@@ -19,6 +19,9 @@ impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         let current_time = ctx.input(|i| i.time);
 
+        // 更新状态消息
+        self.update_status_message(ctx);
+
         // 检查是否需要关闭菜单（点击外部）
         if let (Some(active_menu), Some(click_pos)) = (&self.active_menu, self.menu_click_pos) {
             if let Some(menu_items) = self.menu_data.get(active_menu) {
@@ -47,10 +50,10 @@ impl eframe::App for MyApp {
         egui::TopBottomPanel::top("top_panel").show(ctx, |ui| {
             ui.vertical(|ui| {
                 UIRenderer::render_top_menu(ui, self, ctx);
-                ui.separator();
-                ui.horizontal(|ui| {
-                    ui.label("状态栏");
-                });
+                // ui.separator();
+                // ui.horizontal(|ui| {
+                //     ui.label("状态栏");
+                // });
             });
         });
 
@@ -59,12 +62,12 @@ impl eframe::App for MyApp {
 
         // 渲染底部状态栏
         egui::TopBottomPanel::bottom("bottom_panel").show(ctx, |ui| {
-            UIRenderer::render_status_bar(ui);
+            UIRenderer::render_status_bar(ui, self);
         });
 
         // 渲染侧边栏
         egui::SidePanel::left("left_panel").show(ctx, |ui| {
-            UIRenderer::render_sidebar(ui);
+            UIRenderer::render_sidebar(ui, self);
         });
 
         // 渲染主内容区域
